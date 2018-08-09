@@ -8,31 +8,30 @@ pipeline {
 
     stages {
 
-        stage ('Checkout') {
-            steps {
-                git 'https://github.com/eclipse/hono.git'
-            }
-        }
-
-        stage ('Prepare') {
-            steps {
-                echo 'Nothing to prepare right now'
-            }
-        }
-
         stage ('Build') {
             steps {
+                git 'https://github.com/eclipse/hono.git'
                 withMaven(
                     maven: 'apache-maven-3.5.x',
                     mavenLocalRepo: '.repository'
                 ) {
-                    sh 'mvn install -B -DcreateJavadoc=true'
+                    sh 'mvn install -B -DskipTests -DcreateJavadoc=true'
                 }
             }
         }
 
-        stage ('Collect') {
+        stage ('Verify'){
+            agent {
+                label 'container-build'
+            }
             steps {
+                git 'https://github.com/eclipse/hono.git'
+                withMaven(
+                    maven: 'apache-maven-3.5.x',
+                    mavenLocalRepo: '.repository'
+                ) {
+                    sh 'mvn install verify -B -DcreateJavadoc=true'
+                }
                 junit '**/target/surefire-reports/**/*.xml'
                 jacoco()
             }
