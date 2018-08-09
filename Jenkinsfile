@@ -1,28 +1,41 @@
-node {
+pipeline {
 
-    def mavenLocalRepo = "~/.hono.m2repo"
+    agent any
 
-    stage ('Checkout') {
-        git 'https://github.com/eclipse/hono.git'
+    tools {
+        maven 'apache-maven-3.5.x'
     }
-    
-    stage ('Prepare') {
-        dir(mavenLocalRepo) {
-            deleteDir()
+
+    stages {
+
+        stage ('Checkout') {
+            steps {
+                git 'https://github.com/eclipse/hono.git'
+            }
         }
-    }
 
-    stage ('Build') {
-        withMaven(
-            maven: 'Maven 3.5.x',
-            mavenLocalRepo: mavenLocalRepo
-        ) {
-            sh 'mvn install -B -Dtest.env=true -DcreateJavadoc=true'
+        stage ('Prepare') {
+            steps {
+                echo 'Nothing to prepare right now'
+            }
         }
-    }
 
-    stage ('Post') {
-        junit '**/target/surefire-reports/**/*.xml'
-        jacoco()
+        stage ('Build') {
+            steps {
+                withMaven(
+                    maven: 'apache-maven-3.5.x',
+                    mavenLocalRepo: '.repository'
+                ) {
+                    sh 'mvn install -B -DcreateJavadoc=true'
+                }
+            }
+        }
+
+        stage ('Collect') {
+            steps {
+                junit '**/target/surefire-reports/**/*.xml'
+                jacoco()
+            }
+        }
     }
 }
