@@ -1,0 +1,4 @@
+[submodule "openshift-ansible-3.9"]
+	path = tests/test-deploy/openshift-ansible
+	url = https://github.com/openshift/openshift-ansible
+	branch = release-3.9

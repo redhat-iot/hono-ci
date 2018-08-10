@@ -20,9 +20,10 @@ pipeline {
             }
         }
 
-        stage ('Verify'){
+        stage ('Verify') {
             agent {
-                label 'container-build'
+                label 'container-build',
+                reuseNode: false
             }
             steps {
                 git 'https://github.com/eclipse/hono.git'
@@ -36,5 +37,16 @@ pipeline {
                 jacoco()
             }
         }
+
+        stage ('Deploy') {
+            steps {
+                openstackMachine(
+                    cloud: 'OpenStack',
+                    template: 'openshift-deploy-test'
+                ) {
+                }
+            }
+        }
+
     }
 }
