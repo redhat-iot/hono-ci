@@ -1,0 +1,49 @@
+[OSEv3:children]
+masters
+nodes
+nfs
+etcd
+
+[OSEv3:vars]
+deployment_type=origin
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'}]
+
+openshift_install_examples=false
+openshift_enable_service_catalog=false
+
+openshift_master_default_subdomain=${PUBLIC_IP}.nip.io
+openshift_master_cluster_hostname=${PUBLIC_IP}.nip.io
+openshift_master_cluster_public_hostname=${PUBLIC_IP}.nip.io
+openshift_master_default_subdomain=${PUBLIC_IP}.nip.io
+
+openshift_enable_unsupported_configurations=true
+
+# openshift version
+
+openshift_image_tag=v3.11
+openshift_release=v3.11
+
+# Registry
+
+openshift_hosted_registry_storage_kind=nfs
+openshift_hosted_registry_storage_access_modes=['ReadWriteMany']
+openshift_hosted_registry_storage_nfs_directory=/exports
+openshift_hosted_registry_storage_nfs_options='*(rw,root_squash)'
+openshift_hosted_registry_storage_volume_name=registry
+openshift_hosted_registry_storage_volume_size=40Gi
+
+# Metrics
+
+openshift_metrics_install_metrics=false
+
+[masters]
+${PUBLIC_IP}
+
+[etcd]
+${PUBLIC_IP}
+
+[nodes]
+${PUBLIC_IP} openshift_public_hostname=${PUBLIC_IP}.nip.io openshift_public_ip=${PUBLIC_IP} openshift_hostname=${PUBLIC_IP}.nip.io openshift_ip=${PUBLIC_IP} openshift_node_group_name='node-config-all-in-one'
+
+[nfs]
+${PUBLIC_IP}

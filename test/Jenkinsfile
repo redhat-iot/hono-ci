@@ -1,0 +1,81 @@
+import groovy.transform.Field
+
+/*
+ * The ID of the Jenkins credentials object (type SSH) which holds the key for
+ * the machine created by OpenStack. You may have need to update this and/or
+ * create your own credentials object in Jenkins.
+ */
+def masterCredentialsId = 'c0eb724c-f8ab-418f-b4b6-336e779beeac'
+def openshiftCredentialsId = 'd547b54a-3fae-4a00-90b4-dab724eb8742'
+def gitUrl
+def gitBranch
+def gitCommit
+
+@Field masterMachine
+
+def master ( params ) {
+    def host = masterMachine.address
+    def sshOpts = "-oConnectTimeout=15 -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i '${params.identity}' '${params.user}@${host}'"
+    def escaped = escape(params.script)
+    return sh ( returnStatus: params.returnStatus ?: false , script: "ssh $sshOpts $escaped" )
+}
+
+def escape ( String input ) {
+    if ( input == null ) {
+        return null
+    }
+
+    return"'" + input.replace("'", "'\"'\"'") + "'"
+}
+
+node {
+
+    stage ('Checkout') {
+        def scmInfo = checkout scm
+        echo "${scmInfo}"
+        gitUrl = scmInfo.GIT_URL
+        gitBranch = scmInfo.GIT_BRANCH.replaceAll('^origin\\/', '')
+        gitCommit = scmInfo.GIT_COMMIT
+        echo "hono-ci - url: ${gitUrl}, branch: ${gitBranch}, commit: ${gitCommit}"
+    }
+
+    stage('Create Machine') {
+        masterMachine = openstackMachine cloud: 'OpenStack', template: 'openshift-deploy-test'
+        echo "Machine: ${masterMachine.address}"
+    }
+
+    stage('Wait for Startup') {
+        timeout(5) {
+            waitUntil {
+                def rc = sh ( returnStatus: true, script: "ping -qc 5 ${masterMachine.address}" )
+                echo "Ping result: $rc"
+                return rc == 0
+            }
+        }
+        timeout(30) {
+            withCredentials([sshUserPrivateKey(credentialsId: masterCredentialsId, keyFileVariable: 'identity', usernameVariable: 'user')]) {
+                waitUntil {
+                    def rc = master ( identity: identity, user: user, returnStatus: true, script: "systemctl status -q docker" )
+                    echo "SSH result: $rc"
+                    return rc == 0
+                }
+            }
+        }
+    }
+
+    stage('Setup OKD') {
+        withCredentials([
+              sshUserPrivateKey(credentialsId: masterCredentialsId, keyFileVariable: 'identity', usernameVariable: 'user'),
+              usernamePassword(credentialsId: openshiftCredentialsId, usernameVariable: 'openshiftUser', passwordVariable: 'openshiftPassword')
+            ]) {
+            master ( identity: identity, user: user, script: "git clone -b ${escape(gitBranch)} ${escape(gitUrl)} hono-ci" )
+            master ( identity: identity, user: user, script: "cd hono-ci && git checkout ${escape(gitCommit)} && git submodule update --init --recursive" )
+            master ( identity: identity, user: user, script: "cd hono-ci/tests/test-deploy && ./run ${masterMachine.address} ${escape(openshiftUser)} ${escape(openshiftPassword)}" )
+        }
+    }
+
+    stage('Confirm') {
+        input message:"Are we done here?"
+    }
+
+}

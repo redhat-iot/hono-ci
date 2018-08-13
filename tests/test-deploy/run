@@ -1,0 +1,28 @@
+#!/usr/bin/bash
+
+set -e
+
+env | sort
+
+echo "Hello World"
+
+export PUBLIC_IP=$1
+export PUBLIC_IP=$(/usr/sbin/ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+
+OKD_USER="$2"
+OKD_PASSWORD="$3"
+
+envsubst < inventory.txt.in > inventory.txt
+
+ssh-keygen -b 4096 -t rsa -f ~/.ssh/id_rsa -q -N ""
+cat ~/.ssh/id_rsa.pub  >> ~/.ssh/authorized_keys
+
+ssh centos@$PUBLIC_IP -oStrictHostKeyChecking=no id
+
+ansible-playbook -b -u centos -i inventory.txt openshift-ansible/playbooks/prerequisites.yml
+ansible-playbook -b -u centos -i inventory.txt openshift-ansible/playbooks/deploy_cluster.yml
+
+sudo htpasswd -b -c /etc/origin/master/htpasswd "$OKD_USER" "$OKD_PASSWORD"
+
+sudo htpasswd -b /etc/origin/master/htpasswd "admin" "admin12"
+sudo oc adm policy add-cluster-role-to-user cluster-admin "admin"

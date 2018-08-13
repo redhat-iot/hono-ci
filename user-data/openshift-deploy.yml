@@ -17,25 +17,37 @@ packages:
  - kexec-tools
  - sos
  - psacct
- - atomic-openshift-utils
  - docker-1.13.1
  - lvm2
+ - gettext
 
 growpart:
    mode: off
 
+bootcmd:
+ - [ getenforce ]
+
 runcmd:
+
+ - [ systemctl, start, NetworkManager ]
+
  - [ systemctl, enable, sshd ]
  - [ systemctl, start, sshd ]
+
  - [ parted, "/dev/vda", print ]
  - [ parted, "/dev/vda", mkpart, primary, ext2, "50GB", "100%" ]
  - [ parted, "/dev/vda", set, "2", lvm, on ]
  - [ growpart, "/dev/vda", "1" ] 
  - [ partx, "--update", "/dev/vda" ]
- - [ xfs_growfs, "/dev/vda1" ]
+ - [ xfs_growfs, "/dev/vda1" ] # use resize2fs for ext4
  - [ pvcreate, "/dev/vda2" ]
  - [ vgcreate, "docker-vg", "/dev/vda2" ]
  - [ parted, "/dev/vda", print ]
  - [ bash, "-c", "echo VG=docker-vg > /etc/sysconfig/docker-storage-setup" ]
+
+ - [ yum, "-y", install, "https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm" ]
+ - [ sed, "-i", "-e", "s/^enabled=1/enabled=0/", /etc/yum.repos.d/epel.repo ]
+ - [ yum, "-y", "--enablerepo=epel", install, ansible, pyOpenSSL ]
+
  - [ systemctl, enable, docker.service ]
- - [ systemctl, start, docker.service ]
+ - [ systemctl, start, docker.service ] # this must be last, checked by jenkins

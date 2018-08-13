@@ -1,0 +1,25 @@
+#cloud-config
+
+package_update: true
+
+packages:
+ - java-1.8.0-openjdk-devel
+ - curl
+ - git
+
+write_files:
+- path: /usr/lib/systemd/system/jenkins-slave.service
+  permissions: '0644'
+  content: |
+    [Unit]
+    Description=Jenkins Slave
+    Wants=network.target
+    After=network.target
+    [Service]
+    ExecStartPre=/usr/bin/curl -Ls ${SLAVE_JAR_URL} --output /var/run/jenkins.jar
+    ExecStart=/usr/bin/java -jar /var/run/jenkins.jar -jnlpUrl ${SLAVE_JNLP_URL} -secret ${SLAVE_JNLP_SECRET}
+    Restart=always
+
+runcmd:
+ - systemctl enable jenkins-slave.service
+ - systemctl start jenkins-slave.service
